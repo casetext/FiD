@@ -1,5 +1,7 @@
 numpy
-torch
+torch==1.10.1
 faiss-cpu
-transformers==3.0.2
+transformers==4.10.0
 tensorboard
+deepspeed=="0.6.2+d8ed3ce4"
+
