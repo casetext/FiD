@@ -1,0 +1,15 @@
+data/*
+uncased_L-12_H-768_A-12/*
+*.ipynb
+*.npy
+*.pyc
+.idea
+.DS_STORE
+env
+.env
+venv
+Project Apollo.iml
+law_bert_*
+mrpc_law/*
+mrpc_law_onnx*
+wandb*
