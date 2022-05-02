@@ -11,8 +11,9 @@ import torch.nn.functional as F
 from torch import nn
 from torch.nn import CrossEntropyLoss
 import numpy as np
+from src.transformer_modules.modeling_t5  import T5ForConditionalGeneration
 
-class FiDT5(transformers.T5ForConditionalGeneration):
+class FiDT5(T5ForConditionalGeneration):
     def __init__(self, config):
         super().__init__(config)
         self.wrap_encoder()

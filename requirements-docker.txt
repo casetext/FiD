@@ -1,8 +1,6 @@
-numpy
-torch==1.10.1
 faiss-cpu
 transformers==4.10.0
 tensorboard
 sentencepiece
-deepspeed
+
 

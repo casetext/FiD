@@ -42,9 +42,8 @@ class Options():
         self.parser.add_argument('--use_checkpoint', action='store_true', help='use checkpoint in the encoder')
         self.parser.add_argument('--text_maxlength', type=int, default=200, 
                         help='maximum number of tokens in text segments (question+passage)')
-        self.parser.add_argument('--answer_maxlength', type=int, default=-1, 
-                        help='maximum number of tokens used to train the model, no truncation if -1')
-        self.parser.add_argument('--no_title', action='store_true', 
+        self.parser.add_argument('--answer_maxlength', type=int, default=-1)
+        self.parser.add_argument('--no_title', action='store_true',
                         help='article titles not included in passages')
         self.parser.add_argument('--n_context', type=int, default=1)
 
@@ -89,6 +88,12 @@ class Options():
                         help='save model every <save_freq> steps during training')
         self.parser.add_argument('--eval_print_freq', type=int, default=1000,
                         help='print intermdiate results of evaluation every <eval_print_freq> steps')
+
+
+    def add_deepspeed_options(self):
+        import deepspeed
+        self.parser = deepspeed.add_config_arguments(self.parser)
+        
 
 
     def print_options(self, opt):
