@@ -137,6 +137,8 @@ def evaluate(model, dataset, tokenizer, collator, opt):
     return exactmatch
 
 if __name__ == "__main__":
+
+    #import ipdb; ipdb.set_trace()
     options = Options()
     options.add_reader_options()
     options.add_optim_options()
@@ -240,6 +242,10 @@ if __name__ == "__main__":
         model=model,
         model_parameters=optimizer_grouped_parameters,
         dist_init_required=True)
+
+    scheduler = deepspeed.runtime.lr_schedules.WarmupDecayLR(optimizer,
+                                                            warmup_max_lr=opt.lr,
+                                                            total_num_steps=opt.total_steps)
 
     
     opt.gradient_accumulation_steps = model.gradient_accumulation_steps()
