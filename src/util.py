@@ -12,6 +12,7 @@ import logging
 import json
 from pathlib import Path
 import torch.distributed as dist
+import transformers
 import csv
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,20 @@ def load(model_class, dir_path, opt, reset_params=False):
     epoch_path = os.path.realpath(dir_path)
     optimizer_path = os.path.join(epoch_path, "optimizer.pth.tar")
     logger.info("Loading %s" % epoch_path)
-    model = model_class.from_pretrained(epoch_path)
+    config_path = os.path.join(dir_path,'config.json')
+    with open(config_path,'r') as cfgf:
+        config = json.load(cfgf)
+    if model_class.__name__ in config['architectures']:
+        model = model_class.from_pretrained(epoch_path)
+    elif 'T5ForConditionalGeneration' in config['architectures'] and \
+        model_class.__name__ == 'FiDT5':
+        t5 = transformers.T5ForConditionalGeneration.from_pretrained('/tmp/pytorch_merged_vocab_model_dir_1024000/')
+        model = model_class(t5.config)
+        model.load_t5(t5.state_dict()) 
+    else:
+        raise OSError("Wrong model config/architecture {}".format(config['architectures']))
+            
+    
     model = model.to(opt.device)
     logger.info("loading checkpoint %s" %optimizer_path)
     if os.path.exists(optimizer_path):
