@@ -484,8 +484,12 @@ class GenerationMixin:
 
         if is_encoder_decoder:
             assert encoder_outputs is not None
-            encoder_outputs["last_hidden_state"] = encoder_outputs.last_hidden_state.index_select(
-                0, expanded_return_idx.to(encoder_outputs.last_hidden_state.device)
+            if isinstance(encoder_outputs.last_hidden_state,tuple):
+                last_hidden_state = encoder_outputs.last_hidden_state[0]
+            else:
+                last_hidden_state =  encoder_outputs.last_hidden_state
+            encoder_outputs["last_hidden_state"] = last_hidden_state.index_select(
+                0, expanded_return_idx.to(last_hidden_state.device)
             )
             model_kwargs["encoder_outputs"] = encoder_outputs
         return input_ids, model_kwargs
