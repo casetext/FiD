@@ -296,11 +296,18 @@ class T5LayerFF(nn.Module):
         self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.dropout = nn.Dropout(config.dropout_rate)
 
-    def forward(self, hidden_states):
+    def _forward(self, hidden_states):
         forwarded_states = self.layer_norm(hidden_states)
         forwarded_states = self.DenseReluDense(forwarded_states)
         hidden_states = hidden_states + self.dropout(forwarded_states)
         return hidden_states
+
+    def forward(self, hidden_states):
+        if torch.is_autocast_enabled():
+            with torch.cuda.amp.autocast(enabled=False):
+                return self._forward(hidden_states)
+        else:
+            return self._forward(hidden_states)
 
 
 class T5Attention(nn.Module):
