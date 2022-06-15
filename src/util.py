@@ -81,7 +81,7 @@ def load(model_class, dir_path, opt, reset_params=False):
         model = model_class.from_pretrained(epoch_path)
     elif 'T5ForConditionalGeneration' in config['architectures'] and \
         model_class.__name__ == 'FiDT5':
-        t5 = transformers.T5ForConditionalGeneration.from_pretrained('/tmp/pytorch_merged_vocab_model_dir_1024000/')
+        t5 = transformers.T5ForConditionalGeneration.from_pretrained(dir_path)
         model = model_class(t5.config)
         model.load_t5(t5.state_dict()) 
     else:
