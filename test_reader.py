@@ -10,8 +10,9 @@ import numpy as np
 from pathlib import Path
 import torch.distributed as dist
 from torch.utils.data import DataLoader, SequentialSampler
-
-
+from tqdm.auto import tqdm
+from rouge import Rouge
+import pandas as pd
 import src.slurm
 import src.util
 from src.options import Options
@@ -21,6 +22,7 @@ import src.model
 
 def evaluate(model, dataset, dataloader, tokenizer, opt):
     loss, curr_loss = 0.0, 0.0
+    rouge = Rouge()
     model.eval()
     if hasattr(model, "module"):
         model = model.module
@@ -29,11 +31,12 @@ def evaluate(model, dataset, dataloader, tokenizer, opt):
         model.reset_score_storage() 
     total = 0
     exactmatch = []
+    rouge_scores = {'rouge-1':[],'rouge-2':[],'rouge-l':[]}
     if opt.write_results:
         write_path = Path(opt.checkpoint_dir) / opt.name / 'test_results'
         fw = open(write_path / ('%d.txt'%opt.global_rank), 'a')
     with torch.no_grad():
-        for i, batch in enumerate(dataloader):
+        for i, batch in enumerate(tqdm(dataloader,total=len(dataloader))):
             (idx, _, _, context_ids, context_mask) = batch
 
             if opt.write_crossattention_scores:
@@ -54,6 +57,12 @@ def evaluate(model, dataset, dataloader, tokenizer, opt):
                 if 'answers' in example:
                     score = src.evaluation.ems(ans, example['answers'])
                     exactmatch.append(score)
+                    _rouge_scores = rouge.get_scores(ans, example['answers'][0])[0]
+                    rouge_scores['rouge-1'].append(_rouge_scores['rouge-1'])
+                    rouge_scores['rouge-2'].append(_rouge_scores['rouge-2'])
+                    rouge_scores['rouge-l'].append(_rouge_scores['rouge-l'])
+                    
+
 
                 if opt.write_results:
                     fw.write(str(example['id']) + "\t" + ans + '\n')
@@ -75,7 +84,7 @@ def evaluate(model, dataset, dataloader, tokenizer, opt):
         torch.distributed.barrier()
     score, total = src.util.weighted_average(np.mean(exactmatch), total, opt)
     
-    return score, total
+    return score, total, rouge_scores
 
 
 if __name__ == "__main__":
@@ -126,9 +135,11 @@ if __name__ == "__main__":
     model = model.to(opt.device)
 
     logger.info("Start eval")
-    exactmatch, total = evaluate(model, eval_dataset, eval_dataloader, tokenizer, opt)
+    exactmatch, total, rouge_scores = evaluate(model, eval_dataset, eval_dataloader, tokenizer, opt)
+    rouge_scores = {k:pd.DataFrame(v).mean().to_dict() for k,v  in rouge_scores.items()}
 
     logger.info(f'EM {100*exactmatch:.2f}, Total number of example {total}')
+    logger.info('Rouge scores {}'.format(rouge_scores))
 
     if opt.write_results and opt.is_main:
         glob_path = Path(opt.checkpoint_dir) / opt.name / 'test_results'
