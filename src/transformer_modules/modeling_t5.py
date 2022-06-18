@@ -527,8 +527,15 @@ class T5Attention(nn.Module):
         present_key_value_state = (key_states, value_states) if (self.is_decoder and use_cache) else None
         outputs = (attn_output,) + (present_key_value_state,) + (position_bias,)
 
+        # TODO: put in an additional flag indicating whether or not user wants to obtain
+        # normalized or unnormalized attention weights
         if output_attentions:
-            outputs = outputs + (attn_weights,)
+            
+            # normalized
+            # outputs = outputs + (attn_weights,)
+
+            # unnormalized
+            outputs = outputs + (scores,)
         return outputs
 
 
@@ -1034,6 +1041,7 @@ class T5Stack(T5PreTrainedModel):
                 present_key_value_states = present_key_value_states + (present_key_value_state,)
 
             if output_attentions:
+                print("does this even get triggered?")
                 all_attentions = all_attentions + (layer_outputs[3],)
                 if self.is_decoder:
                     all_cross_attentions = all_cross_attentions + (layer_outputs[5],)
@@ -1318,6 +1326,57 @@ class T5Model(T5PreTrainedModel):
         """
         for layer, heads in heads_to_prune.items():
             self.encoder.layer[layer].attention.prune_heads(heads)
+    
+    ### Divy added edits ###
+    def extract_attentions(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        decoder_input_ids=None,
+        decoder_attention_mask=None,
+        head_mask=None,
+        decoder_head_mask=None,
+        cross_attn_head_mask=None,
+        encoder_outputs=None,
+        past_key_values=None,
+        inputs_embeds=None,
+        decoder_inputs_embeds=None,
+        use_cache=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        ):
+
+        use_cache = use_cache if use_cache is not None else self.config.use_cache
+        if encoder_outputs is None:
+            encoder_outputs = self.encoder(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                inputs_embeds=inputs_embeds,
+                head_mask=head_mask,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+            )
+        
+        hidden_states = encoder_outputs[0]
+        decoder_outputs = self.decoder(
+            input_ids=decoder_input_ids,
+            attention_mask=decoder_attention_mask,
+            inputs_embeds=decoder_inputs_embeds,
+            past_key_values=past_key_values,
+            encoder_hidden_states=hidden_states,
+            encoder_attention_mask=attention_mask,
+            head_mask=decoder_head_mask,
+            cross_attn_head_mask=cross_attn_head_mask,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        
+        return encoder_outputs, decoder_outputs
+
 
     @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Seq2SeqModelOutput, config_class=_CONFIG_FOR_DOC)
@@ -1338,6 +1397,7 @@ class T5Model(T5PreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        return_encoder_only=False
     ):
         r"""
         Returns:
@@ -1375,12 +1435,17 @@ class T5Model(T5PreTrainedModel):
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
             )
-        if return_dict and not isinstance(encoder_outputs, BaseModelOutput):
-            encoder_outputs = BaseModelOutput(
-                last_hidden_state=encoder_outputs[0],
-                hidden_states=encoder_outputs[1] if len(encoder_outputs) > 1 else None,
-                attentions=encoder_outputs[2] if len(encoder_outputs) > 2 else None,
-            )
+        
+        print("isinstance:")
+        print(isinstance(encoder_outputs, BaseModelOutput))
+        # this seems to be messing up the output
+        # if return_dict and not isinstance(encoder_outputs, BaseModelOutput):
+        #     print("is this getting triggered???")
+        #     encoder_outputs = BaseModelOutput(
+        #         last_hidden_state=encoder_outputs[0],
+        #         hidden_states=encoder_outputs[1] if len(encoder_outputs) > 1 else None,
+        #         attentions=encoder_outputs[2] if len(encoder_outputs) > 2 else None,
+        #     )
 
         hidden_states = encoder_outputs[0]
         if self.model_parallel:
@@ -1412,8 +1477,14 @@ class T5Model(T5PreTrainedModel):
             return_dict=return_dict,
         )
 
+        if return_encoder_only:
+            print("returning encoder class!")
+            return encoder_outputs, decoder_outputs
+
         if not return_dict:
-            return decoder_outputs + encoder_outputs
+            print("hiiiii!")
+            return encoder_outputs
+            # return decoder_outputs + encoder_outputs
 
         return Seq2SeqModelOutput(
             last_hidden_state=decoder_outputs.last_hidden_state,
@@ -1428,7 +1499,7 @@ class T5Model(T5PreTrainedModel):
 
 
 @add_start_docstrings("""T5 Model with a `language modeling` head on top. """, T5_START_DOCSTRING)
-class T5ForConditionalGeneration(T5PreTrainedModel):
+class T5ForConditionalGeneration_local(T5PreTrainedModel):
     _keys_to_ignore_on_load_missing = [
         r"encoder\.embed_tokens\.weight",
         r"decoder\.embed_tokens\.weight",
@@ -1527,7 +1598,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         use_cache=None,
         output_attentions=None,
         output_hidden_states=None,
-        return_dict=None,
+        return_dict=None
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
