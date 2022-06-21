@@ -532,10 +532,10 @@ class T5Attention(nn.Module):
         if output_attentions:
             
             # normalized
-            # outputs = outputs + (attn_weights,)
+            outputs = outputs + (attn_weights,)
 
             # unnormalized
-            outputs = outputs + (scores,)
+            # outputs = outputs + (scores,)
         return outputs
 
 
