@@ -427,6 +427,7 @@ class T5Attention(nn.Module):
         query_length=None,
         use_cache=False,
         output_attentions=False,
+        output_unnormalized_attentions=False
     ):
         """
         Self-attention (if key_value_states is None) or attention over source sentence (provided by key_value_states).
@@ -529,8 +530,15 @@ class T5Attention(nn.Module):
 
         # TODO: put in an additional flag indicating whether or not user wants to obtain
         # normalized or unnormalized attention weights
+        ### ADDITIONAL CODE
         if output_attentions:
             
+            if output_unnormalized_attentions:
+
+                outputs = outputs + (scores,)
+                return outputs
+        ### ADDITIONAL CODE
+
             # normalized
             outputs = outputs + (attn_weights,)
 
@@ -555,6 +563,7 @@ class T5LayerSelfAttention(nn.Module):
         past_key_value=None,
         use_cache=False,
         output_attentions=False,
+        output_unnormalized_attentions=False
     ):
         normed_hidden_states = self.layer_norm(hidden_states)
         attention_output = self.SelfAttention(
@@ -565,6 +574,7 @@ class T5LayerSelfAttention(nn.Module):
             past_key_value=past_key_value,
             use_cache=use_cache,
             output_attentions=output_attentions,
+            output_unnormalized_attentions=output_unnormalized_attentions
         )
         hidden_states = hidden_states + self.dropout(attention_output[0])
         outputs = (hidden_states,) + attention_output[1:]  # add attentions if we output them
@@ -589,6 +599,7 @@ class T5LayerCrossAttention(nn.Module):
         use_cache=False,
         query_length=None,
         output_attentions=False,
+        output_unnormalized_attentions=False
     ):
         normed_hidden_states = self.layer_norm(hidden_states)
         attention_output = self.EncDecAttention(
@@ -601,6 +612,7 @@ class T5LayerCrossAttention(nn.Module):
             use_cache=use_cache,
             query_length=query_length,
             output_attentions=output_attentions,
+            output_unnormalized_attentions=output_unnormalized_attentions
         )
         layer_output = hidden_states + self.dropout(attention_output[0])
         outputs = (layer_output,) + attention_output[1:]  # add attentions if we output them
@@ -631,6 +643,7 @@ class T5Block(nn.Module):
         past_key_value=None,
         use_cache=False,
         output_attentions=False,
+        output_unnormalized_attentions=False,
         return_dict=True,
     ):
 
@@ -658,6 +671,7 @@ class T5Block(nn.Module):
             past_key_value=self_attn_past_key_value,
             use_cache=use_cache,
             output_attentions=output_attentions,
+            output_unnormalized_attentions=output_unnormalized_attentions
         )
         hidden_states, present_key_value_state = self_attention_outputs[:2]
         attention_outputs = self_attention_outputs[2:]  # Keep self-attention outputs and relative position weights
@@ -686,6 +700,7 @@ class T5Block(nn.Module):
                 query_length=query_length,
                 use_cache=use_cache,
                 output_attentions=output_attentions,
+                output_unnormalized_attentions=output_unnormalized_attentions
             )
             hidden_states = cross_attention_outputs[0]
 
@@ -879,6 +894,7 @@ class T5Stack(T5PreTrainedModel):
         past_key_values=None,
         use_cache=None,
         output_attentions=None,
+        output_unnormalized_attentions=None,
         output_hidden_states=None,
         return_dict=None,
     ):
@@ -1021,6 +1037,7 @@ class T5Stack(T5PreTrainedModel):
                     past_key_value=past_key_value,
                     use_cache=use_cache,
                     output_attentions=output_attentions,
+                    output_unnormalized_attentions=output_unnormalized_attentions
                 )
 
             # layer_outputs is a tuple with:
@@ -1343,6 +1360,7 @@ class T5Model(T5PreTrainedModel):
         decoder_inputs_embeds=None,
         use_cache=None,
         output_attentions=None,
+        output_unnormalized_attentions=None,
         output_hidden_states=None,
         return_dict=None,
         ):
@@ -1355,6 +1373,7 @@ class T5Model(T5PreTrainedModel):
                 inputs_embeds=inputs_embeds,
                 head_mask=head_mask,
                 output_attentions=output_attentions,
+                output_unnormalized_attentions=output_unnormalized_attentions,
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
             )
@@ -1371,6 +1390,7 @@ class T5Model(T5PreTrainedModel):
             cross_attn_head_mask=cross_attn_head_mask,
             use_cache=use_cache,
             output_attentions=output_attentions,
+            output_unnormalized_attentions=output_unnormalized_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
