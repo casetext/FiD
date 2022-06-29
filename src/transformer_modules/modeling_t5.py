@@ -1596,7 +1596,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         return self.encoder
 
     def get_decoder(self):
-        return self.decoder
+        return self.decoder   
 
     @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Seq2SeqLMOutput, config_class=_CONFIG_FOR_DOC)
@@ -1616,6 +1616,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         labels=None,
         use_cache=None,
         output_attentions=None,
+        output_unnormalized_attentions=None,
         output_hidden_states=None,
         return_dict=None
     ):
@@ -1661,6 +1662,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
                 inputs_embeds=inputs_embeds,
                 head_mask=head_mask,
                 output_attentions=output_attentions,
+                output_unnormalized_attentions=output_unnormalized_attentions,
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
             )
@@ -1717,6 +1719,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
             cross_attn_head_mask=cross_attn_head_mask,
             use_cache=use_cache,
             output_attentions=output_attentions,
+            output_unnormalized_attentions=output_unnormalized_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
