@@ -1596,7 +1596,50 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         return self.encoder
 
     def get_decoder(self):
-        return self.decoder   
+        return self.decoder
+
+    def obtain_gqp(
+        self,
+        input_ids,
+        attention_mask,
+        decoder_input_ids,
+        output_attentions,
+        output_unnormalized_attentions,
+        cuda=True
+    ):
+        # unclear whether I should pass in decoder input ids or labels.
+        # labels is shifted one token right
+        model_forward = self.forward(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                decoder_input_ids=decoder_input_ids,
+                output_attentions=output_attentions,
+                output_unnormalized_attentions=output_unnormalized_attentions,
+            )
+
+        cross_attentions = model_forward.cross_attentions
+        stacked_forward_attentions = torch.cat(cross_attentions, dim=0)
+        msk = torch.reshape(attention_mask, (1, attention_mask.shape[1]*attention_mask.shape[2]))
+
+        if cuda:
+            msk = msk.cuda()
+        
+        masked_stacked_forward_attentions = stacked_forward_attentions.masked_fill(msk == False, 0.0)
+
+        g_qps = []
+
+        for i in range(attention_mask.shape[1]):
+
+            sliced_masked_stacked_forward_attentions = masked_stacked_forward_attentions[:, :, :, (i*attention_mask.shape[2]):((i + 1)*attention_mask.shape[2])]
+            
+            # shape {layer, head, output_len, input_len}
+            # average over layer, head, input len along first token of output, as in paper 
+            g_qp = torch.mean(sliced_masked_stacked_forward_attentions[:, :, 0, :]).cpu()
+            g_qps.append(g_qp)
+
+        return g_qps
+
+
 
     @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Seq2SeqLMOutput, config_class=_CONFIG_FOR_DOC)
