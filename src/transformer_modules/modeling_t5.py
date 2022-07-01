@@ -1605,13 +1605,17 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         max_length
     ):
 
-        outputs = self.generate(
-                    input_ids,
-                    attention_mask,
-                    max_length,
-                    return_dict_in_generate=True,
-                    output_scores=True
-                )
+        # go into eval mode, freeze dropout
+        self.eval()
+
+        with torch.no_grad():
+            outputs = self.generate(
+                        input_ids,
+                        attention_mask,
+                        max_length,
+                        return_dict_in_generate=True,
+                        output_scores=True
+                    )
         
         softmax = torch.nn.Softmax(dim=1)
 
@@ -1632,13 +1636,19 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
     ):
         # unclear whether I should pass in decoder input ids or labels.
         # labels is shifted one token right
-        model_forward = self.forward(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                decoder_input_ids=decoder_input_ids,
-                output_attentions=output_attentions,
-                output_unnormalized_attentions=output_unnormalized_attentions,
-            )
+
+        # go into eval mode, freeze dropout
+        self.eval()
+
+        # don't have to calculate gradients
+        with torch.no_grad():
+            model_forward = self.forward(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    decoder_input_ids=decoder_input_ids,
+                    output_attentions=output_attentions,
+                    output_unnormalized_attentions=output_unnormalized_attentions,
+                )
 
         cross_attentions = model_forward.cross_attentions
         stacked_forward_attentions = torch.cat(cross_attentions, dim=0)
