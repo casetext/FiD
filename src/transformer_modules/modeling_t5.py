@@ -1597,6 +1597,29 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
 
     def get_decoder(self):
         return self.decoder
+    
+    def obtain_log_generated_probability(
+        self,
+        input_ids,
+        attention_mask,
+        max_length
+    ):
+
+        outputs = self.generate(
+                    input_ids,
+                    attention_mask,
+                    max_length,
+                    return_dict_in_generate=True,
+                    output_scores=True
+                )
+        
+        softmax = torch.nn.Softmax(dim=1)
+
+        total_log_prob = 0
+        for i in range(len(outputs.scores)):
+            total_log_prob -= torch.log(torch.max(softmax(outputs.scores[i])))
+        
+        return total_log_prob
 
     def obtain_gqp(
         self,
