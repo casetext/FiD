@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     # define the load paths
     nq_path =  "/mnt/disks/external_mounted_disk/datasets/NQ/NQ/test.json"
-    compose_path = "/mnt/disks/external_mounted_disk/datasets/compose_FiD/compose_fid_qa/dev.json"
+    compose_path = "/mnt/disks/external_mounted_disk/datasets/compose_FiD/compose_fid_qa/test.json"
 
     # preprocess and collate data
     eval_examples = load_data(
