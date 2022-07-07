@@ -2,11 +2,11 @@ import os, sys
 import torch
 import transformers
 from torch.utils.data import DataLoader, SequentialSampler
-import argparse
 import numpy as np 
 import pickle
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from rouge_score import rouge_scorer
 
 import sys
 sys.path.append("/home/divy/FiD")
@@ -16,11 +16,16 @@ from src.data import load_data
 from src.evaluation import ems
 import src.model
 
-def generate_log_sum_probabilities(model, dataset, tokenizer, collator):
+def generate_log_sum_probabilities(model, dataset, tokenizer, collator, rouge_threshold=0.5):
+
+    # define the scorer
+    scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
 
     exact_match_log_probabilities = []
+    rouge_similarity_log_probabilities = []
     incorrect_log_probabilities = []
-    exact_match_answers = []
+
+    rouge_similarity_answers = []
 
     sampler = SequentialSampler(dataset)
     dataloader = DataLoader(dataset,
@@ -45,10 +50,10 @@ def generate_log_sum_probabilities(model, dataset, tokenizer, collator):
                         output_scores=True
                     ).sequences
 
-            
             for k, o in enumerate(sequences):
                 ans = tokenizer.decode(o, skip_special_tokens=True)
                 gold = dataset.get_example(idx[k])['answers']
+
                 score = ems(ans, gold)
                 
             log_probability = model.obtain_log_generated_probability(
@@ -57,21 +62,32 @@ def generate_log_sum_probabilities(model, dataset, tokenizer, collator):
                 max_length=100
 
             )
-            
-            if score == True:
-                exact_match_log_probabilities.append(log_probability.cpu().numpy())
-                exact_match_answers.append(ans)
 
+            # compute rouge score
+            rouge_score = scorer.score(gold[0], ans)['rougeL'].fmeasure
+
+            if rouge_score > rouge_threshold:
+                rouge_similarity_log_probabilities.append(log_probability.cpu().numpy())
+                rouge_similarity_answers.append((gold[0], ans, rouge_score))
+
+                if score == True:
+                    exact_match_log_probabilities.append(log_probability.cpu().numpy())
+            
             else:
                 incorrect_log_probabilities.append(log_probability.cpu().numpy())
-
-    return np.array(exact_match_log_probabilities), np.array(incorrect_log_probabilities), exact_match_answers
+            
+    return (    
+                np.array(incorrect_log_probabilities),
+                np.array(exact_match_log_probabilities),  
+                np.array(rouge_similarity_log_probabilities), 
+                rouge_similarity_answers
+            )
 
 if __name__ == "__main__":
 
     # define the load paths
     nq_path =  "/mnt/disks/external_mounted_disk/datasets/NQ/NQ/test.json"
-    compose_path = "/mnt/disks/external_mounted_disk/datasets/compose_FiD/compose_fid_qa/test.json"
+    compose_path = "/mnt/disks/external_mounted_disk/datasets/compose_FiD/compose_fid_qa/dev.json"
 
     # preprocess and collate data
     eval_examples = load_data(
@@ -83,7 +99,6 @@ if __name__ == "__main__":
     n_passages = 20
     eval_dataset = src.data.Dataset(eval_examples, n_passages)
 
-
     # load the model
     model_class = src.model.FiDT5
     model_load_path = "/home/divy/FiD/model_ckpts/fid_t5_largq_tqa_compose"
@@ -93,7 +108,13 @@ if __name__ == "__main__":
     tokenizer = transformers.T5Tokenizer.from_pretrained('t5-base')
     collator = src.data.Collator(200, tokenizer, answer_maxlength=-1)
 
-    exact_match_log_probabilities, incorrect_log_probabilites, exact_match_answers = generate_log_sum_probabilities(
+    (
+        incorrect_log_probabilites, 
+        exact_match_log_probabilities,
+        rouge_similarity_log_probabilities,  
+        rouge_similarity_answers
+
+    ) = generate_log_sum_probabilities(
         model,
         eval_dataset,
         tokenizer,
@@ -101,11 +122,15 @@ if __name__ == "__main__":
     )
 
     print("saving out arrays ...")
-    np.save("./numpy_drops/exact_matches_test.npy", exact_match_log_probabilities)
-    np.save("./numpy_drops/incorrects_test.npy", incorrect_log_probabilites)
 
-    with open("./numpy_drops/exact_answers_test", "wb") as fp:
-        pickle.dump(exact_match_answers, fp)
+    np.save("./numpy_drops/incorrects.npy", incorrect_log_probabilites)
+    np.save("./numpy_drops/exact_matches.npy", exact_match_log_probabilities)
+    np.save("./numpy_drops/rouge_matches.npy", rouge_similarity_log_probabilities)
+    
+    with open("./numpy_drops/rouge_similarity_answers", "wb") as fp:
+        pickle.dump(rouge_similarity_answers, fp)
+
+    
 
 
     
