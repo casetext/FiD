@@ -13,3 +13,5 @@ law_bert_*
 mrpc_law/*
 mrpc_law_onnx*
 wandb*
+numpy_drops/
+model_ckpts/
