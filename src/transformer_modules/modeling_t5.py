@@ -1497,11 +1497,11 @@ class T5Model(T5PreTrainedModel):
         )
 
         if return_encoder_only:
-            print("returning encoder class!")
+   
             return encoder_outputs, decoder_outputs
 
         if not return_dict:
-            print("hiiiii!")
+
             return encoder_outputs
             # return decoder_outputs + encoder_outputs
 
@@ -1623,7 +1623,8 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         for i in range(len(outputs.scores)):
             total_log_prob -= torch.log(torch.max(softmax(outputs.scores[i])))
         
-        return total_log_prob
+        # normalise by the length of the sequence
+        return total_log_prob / len(outputs.scores)
 
     def obtain_gqp(
         self,
