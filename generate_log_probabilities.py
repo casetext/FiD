@@ -113,21 +113,22 @@ if __name__ == "__main__":
         exact_match_log_probabilities,
         rouge_similarity_log_probabilities,  
         rouge_similarity_answers
-
+        
     ) = generate_log_sum_probabilities(
         model,
         eval_dataset,
         tokenizer,
-        collator
+        collator,
+        rouge_threshold=0.7
     )
 
     print("saving out arrays ...")
 
-    np.save("./numpy_drops/incorrects.npy", incorrect_log_probabilites)
-    np.save("./numpy_drops/exact_matches.npy", exact_match_log_probabilities)
-    np.save("./numpy_drops/rouge_matches.npy", rouge_similarity_log_probabilities)
+    np.save("./numpy_drops/incorrects_dev.npy", incorrect_log_probabilites)
+    np.save("./numpy_drops/exact_matches_dev.npy", exact_match_log_probabilities)
+    np.save("./numpy_drops/rouge_matches_dev.npy", rouge_similarity_log_probabilities)
     
-    with open("./numpy_drops/rouge_similarity_answers", "wb") as fp:
+    with open("./numpy_drops/rouge_similarity_answers_dev", "wb") as fp:
         pickle.dump(rouge_similarity_answers, fp)
 
     
