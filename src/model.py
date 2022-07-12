@@ -52,18 +52,20 @@ class FiDT5(T5ForConditionalGeneration):
             input_ids, 
             attention_mask, 
             max_length,
+            output_confidence=False,
             **kwargs):
 
         self.encoder.n_passages = input_ids.size(1)
 
         # right now this only works for batch_size=1
-        if kwargs["output_scores"]:
+        if output_confidence:
             self.eval()
             with torch.no_grad():
                 outputs = super().generate(
                     input_ids=input_ids.view(input_ids.size(0), -1),
                     attention_mask=attention_mask.view(attention_mask.size(0), -1),
                     max_length=max_length,
+                    output_scores=True,
                     return_dict_in_generate=True,
                     **kwargs
                 )            
