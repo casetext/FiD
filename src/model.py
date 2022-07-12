@@ -47,8 +47,41 @@ class FiDT5(T5ForConditionalGeneration):
         )
 
     # We need to resize the inputs here, as the generate method expect 2D tensors
-    def generate(self, input_ids, attention_mask, max_length,**kwargs):
+    def generate(
+            self, 
+            input_ids, 
+            attention_mask, 
+            max_length,
+            **kwargs):
+
         self.encoder.n_passages = input_ids.size(1)
+
+        # right now this only works for batch_size=1
+        if kwargs["output_scores"]:
+            self.eval()
+            with torch.no_grad():
+                outputs = super().generate(
+                    input_ids=input_ids.view(input_ids.size(0), -1),
+                    attention_mask=attention_mask.view(attention_mask.size(0), -1),
+                    max_length=max_length,
+                    return_dict_in_generate=True,
+                    **kwargs
+                )            
+            sequence = outputs.sequences
+            unsoftmaxed_distributions = outputs.scores
+
+            softmax = torch.nn.Softmax(dim=1)
+            total_log_prob = 0
+
+            for i in range(len(unsoftmaxed_distributions)):
+
+                softmax_distribution = softmax(unsoftmaxed_distributions[i])
+                total_log_prob -= torch.log(softmax_distribution[0][sequence[0][i + 1]])
+
+            total_log_prob = total_log_prob / len(unsoftmaxed_distributions)
+            
+            return sequence, total_log_prob.cpu().numpy()
+
         return super().generate(
             input_ids=input_ids.view(input_ids.size(0), -1),
             attention_mask=attention_mask.view(attention_mask.size(0), -1),
