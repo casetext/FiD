@@ -42,39 +42,36 @@ def generate_log_sum_probabilities(model, dataset, tokenizer, collator, rouge_th
         for i, batch in tqdm(enumerate(dataloader)):
         
             (idx, _, _, context_ids, context_mask) = batch
-            sequences = model.generate(
+            sequences, log_probability = model.generate(
                         input_ids=context_ids.cuda(),
                         attention_mask=context_mask.cuda(),
-                        max_length=100,
-                        return_dict_in_generate=True,
-                        output_scores=True
-                    ).sequences
+                        do_sample=True,
+                        max_length=150,
+                        top_p=0.9,
+                        temperature=1.0,
+                        output_confidence=True
+                    )
+
+            sequences = sequences.cpu()
 
             for k, o in enumerate(sequences):
                 ans = tokenizer.decode(o, skip_special_tokens=True)
                 gold = dataset.get_example(idx[k])['answers']
 
                 score = ems(ans, gold)
-                
-            log_probability = model.obtain_log_generated_probability(
-                input_ids=context_ids.cuda(),
-                attention_mask=context_mask.cuda(),
-                max_length=100
-
-            )
 
             # compute rouge score
             rouge_score = scorer.score(gold[0], ans)['rougeL'].fmeasure
 
             if rouge_score > rouge_threshold:
-                rouge_similarity_log_probabilities.append(log_probability.cpu().numpy())
+                rouge_similarity_log_probabilities.append(log_probability)
                 rouge_similarity_answers.append((gold[0], ans, rouge_score))
 
                 if score == True:
-                    exact_match_log_probabilities.append(log_probability.cpu().numpy())
+                    exact_match_log_probabilities.append(log_probability)
             
             else:
-                incorrect_log_probabilities.append(log_probability.cpu().numpy())
+                incorrect_log_probabilities.append(log_probability)
             
     return (    
                 np.array(incorrect_log_probabilities),
@@ -101,7 +98,7 @@ if __name__ == "__main__":
 
     # load the model
     model_class = src.model.FiDT5
-    model_load_path = "/home/divy/FiD/model_ckpts/fid_t5_largq_tqa_compose"
+    model_load_path = "/home/divy/FiD/model_ckpts/test_experiment_large_fid_qa_compose"
     model = model_class.from_pretrained(model_load_path)
     model = model.cuda()
 
@@ -124,11 +121,11 @@ if __name__ == "__main__":
 
     print("saving out arrays ...")
 
-    np.save("./numpy_drops/incorrects_dev.npy", incorrect_log_probabilites)
-    np.save("./numpy_drops/exact_matches_dev.npy", exact_match_log_probabilities)
-    np.save("./numpy_drops/rouge_matches_dev.npy", rouge_similarity_log_probabilities)
+    np.save("./numpy_drops/incorrects_test_sampling.npy", incorrect_log_probabilites)
+    np.save("./numpy_drops/exact_matches_test_sampling.npy", exact_match_log_probabilities)
+    np.save("./numpy_drops/rouge_matches_test_sampling.npy", rouge_similarity_log_probabilities)
     
-    with open("./numpy_drops/rouge_similarity_answers_dev", "wb") as fp:
+    with open("./numpy_drops/rouge_similarity_answers_test_sampling", "wb") as fp:
         pickle.dump(rouge_similarity_answers, fp)
 
     
