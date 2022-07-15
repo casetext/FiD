@@ -65,7 +65,7 @@ def generate_log_sum_probabilities(model, dataset, tokenizer, collator, rouge_th
 
             if rouge_score > rouge_threshold:
                 rouge_similarity_log_probabilities.append(log_probability)
-                rouge_similarity_answers.append((gold[0], ans, rouge_score))
+                rouge_similarity_answers.append((gold[0], ans, rouge_score, i))
 
                 if score == True:
                     exact_match_log_probabilities.append(log_probability)
@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
     # define the load paths
     nq_path =  "/mnt/disks/external_mounted_disk/datasets/NQ/NQ/test.json"
-    compose_path = "/mnt/disks/external_mounted_disk/datasets/compose_FiD/compose_fid_qa/test.json"
+    compose_path = "/mnt/disks/external_mounted_disk/datasets/compose_FiD/compose_fid_qa/dev.json"
 
     # preprocess and collate data
     eval_examples = load_data(
@@ -121,11 +121,11 @@ if __name__ == "__main__":
 
     print("saving out arrays ...")
 
-    np.save("./numpy_drops/incorrects_test_sampling.npy", incorrect_log_probabilites)
-    np.save("./numpy_drops/exact_matches_test_sampling.npy", exact_match_log_probabilities)
-    np.save("./numpy_drops/rouge_matches_test_sampling.npy", rouge_similarity_log_probabilities)
+    np.save("./numpy_drops/incorrects_dev_sampling.npy", incorrect_log_probabilites)
+    np.save("./numpy_drops/exact_matches_dev_sampling.npy", exact_match_log_probabilities)
+    np.save("./numpy_drops/rouge_matches_dev_sampling.npy", rouge_similarity_log_probabilities)
     
-    with open("./numpy_drops/rouge_similarity_answers_test_sampling", "wb") as fp:
+    with open("./numpy_drops/rouge_similarity_answers_dev_sampling", "wb") as fp:
         pickle.dump(rouge_similarity_answers, fp)
 
     
