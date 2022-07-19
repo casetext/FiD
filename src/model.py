@@ -86,6 +86,7 @@ class FiDT5(T5ForConditionalGeneration):
             
             return sequence, total_log_prob.cpu().numpy()
 
+        # return confidence of -inf (which is N/A) if output_confidence is False
         return super().generate(
             input_ids=input_ids.view(input_ids.size(0), -1),
             attention_mask=attention_mask.view(attention_mask.size(0), -1),
