@@ -53,7 +53,8 @@ class FiDT5(T5ForConditionalGeneration):
             attention_mask, 
             max_length,
             output_confidence=False,
-            **kwargs):
+            **kwargs
+        ):
 
         self.encoder.n_passages = input_ids.size(1)
 
@@ -76,17 +77,15 @@ class FiDT5(T5ForConditionalGeneration):
             softmax = torch.nn.Softmax(dim=1)
             total_log_prob = 0
 
-            print(outputs.scores)
-
             for i in range(len(unsoftmaxed_distributions)):
                 
-                softmax_distribution = softmax(unsoftmaxed_distributions[i])
-                print("unsoftmaxed_distributions")
-                print(unsoftmaxed_distributions[i])
-                print("===")
-                print(softmax_distribution)
-                print("===")
-                print(torch.topk(softmax_distribution, k=5))
+                softmax_distribution = softmax(unsoftmaxed_distributions[i]) - 1e-4
+                # print("unsoftmaxed_distributions")
+                # print(unsoftmaxed_distributions[i])
+                # print("===")
+                # print(softmax_distribution)
+                # print("===")
+                # print(torch.topk(softmax_distribution, k=5))
                 total_log_prob -= torch.log(softmax_distribution[0][sequence[0][i + 1]])
 
             total_log_prob = total_log_prob / len(unsoftmaxed_distributions)
