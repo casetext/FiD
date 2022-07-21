@@ -1672,8 +1672,45 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
             g_qps.append(g_qp)
 
         return g_qps
+    
+    def obtain_attention_matrix(
+        self,
+        input_ids,
+        attention_mask,
+        decoder_input_ids,
+        output_attentions,
+        output_unnormalized_attentions,
+        cuda=True
+    ):
+        # unclear whether I should pass in decoder input ids or labels.
+        # labels is shifted one token right
 
+        # go into eval mode, freeze dropout
+        self.eval()
 
+        # don't have to calculate gradients
+        with torch.no_grad():
+            model_forward = self.forward(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    decoder_input_ids=decoder_input_ids,
+                    output_attentions=output_attentions,
+                    output_unnormalized_attentions=output_unnormalized_attentions,
+                )
+
+        cross_attentions = model_forward.cross_attentions
+        stacked_forward_attentions = torch.cat(cross_attentions, dim=0)
+        msk = torch.reshape(attention_mask, (1, attention_mask.shape[1]*attention_mask.shape[2]))
+
+        if cuda:
+            msk = msk.cuda()
+        
+        masked_stacked_forward_attentions = stacked_forward_attentions.masked_fill(msk == False, 0.0)
+
+        # average over all heads
+        averaged_attention_matrix = torch.mean(masked_stacked_forward_attentions, dim=(0, 1))
+
+        return averaged_attention_matrix
 
     @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Seq2SeqLMOutput, config_class=_CONFIG_FOR_DOC)
