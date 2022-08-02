@@ -26,6 +26,7 @@ def generate_log_sum_probabilities(model, dataset, tokenizer, collator, rouge_th
     incorrect_log_probabilities = []
 
     rouge_similarity_answers = []
+    
 
     sampler = SequentialSampler(dataset)
     dataloader = DataLoader(dataset,
@@ -45,7 +46,7 @@ def generate_log_sum_probabilities(model, dataset, tokenizer, collator, rouge_th
             sequences, log_probability = model.generate(
                         input_ids=context_ids.cuda(),
                         attention_mask=context_mask.cuda(),
-                        do_sample=True,
+                        do_sample=False,
                         max_length=150,
                         top_p=0.9,
                         temperature=1.0,
@@ -62,10 +63,11 @@ def generate_log_sum_probabilities(model, dataset, tokenizer, collator, rouge_th
 
             # compute rouge score
             rouge_score = scorer.score(gold[0], ans)['rougeL'].fmeasure
+            rouge_similarity_answers.append((gold[0], ans, rouge_score, i))
 
             if rouge_score > rouge_threshold:
                 rouge_similarity_log_probabilities.append(log_probability)
-                rouge_similarity_answers.append((gold[0], ans, rouge_score, i))
+                
 
                 if score == True:
                     exact_match_log_probabilities.append(log_probability)
@@ -93,7 +95,7 @@ if __name__ == "__main__":
                             world_size=1,
                             )
     
-    n_passages = 20
+    n_passages = 5 
     eval_dataset = src.data.Dataset(eval_examples, n_passages)
 
     # load the model
@@ -121,11 +123,11 @@ if __name__ == "__main__":
 
     print("saving out arrays ...")
 
-    np.save("./numpy_drops/incorrects_dev_sampling.npy", incorrect_log_probabilites)
-    np.save("./numpy_drops/exact_matches_dev_sampling.npy", exact_match_log_probabilities)
-    np.save("./numpy_drops/rouge_matches_dev_sampling.npy", rouge_similarity_log_probabilities)
+    np.save("./numpy_drops/incorrects_dev.npy", incorrect_log_probabilites)
+    np.save("./numpy_drops/exact_matches_dev.npy", exact_match_log_probabilities)
+    np.save("./numpy_drops/rouge_matches_dev.npy", rouge_similarity_log_probabilities)
     
-    with open("./numpy_drops/rouge_similarity_answers_dev_sampling", "wb") as fp:
+    with open("./numpy_drops/rouge_similarity_answers_dev", "wb") as fp:
         pickle.dump(rouge_similarity_answers, fp)
 
     
