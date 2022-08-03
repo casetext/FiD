@@ -95,7 +95,7 @@ if __name__ == "__main__":
                             world_size=1,
                             )
     
-    n_passages = 5 
+    n_passages = 25 
     eval_dataset = src.data.Dataset(eval_examples, n_passages)
 
     # load the model
