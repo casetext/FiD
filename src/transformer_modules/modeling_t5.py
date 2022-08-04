@@ -1653,7 +1653,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
                 decoder_input_ids=generated_output,
                 output_attentions=True,
                 output_unnormalized_attentions=output_unnormalized_attentions
-        )
+            )
 
         cross_attentions = model_forward.cross_attentions
         stacked_forward_attentions = torch.cat(cross_attentions, dim=0)
@@ -1678,7 +1678,6 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         end_indices = [el[0] for el in end_index_pattern]
 
         relevant_ranges = [(start_index, end_index - 1) for start_index, end_index in zip(start_indices, end_indices)]
-        print(relevant_ranges)
         
         mean_savgols = []
         for relevant_range in relevant_ranges:
