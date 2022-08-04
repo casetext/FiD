@@ -24,6 +24,8 @@ import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
 from torch.utils.checkpoint import checkpoint
+import numpy as np
+import scipy.signal
 
 from transformers.activations import ACT2FN
 from transformers.file_utils import (
@@ -1625,6 +1627,94 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         
         # normalise by the length of the sequence
         return total_log_prob / len(outputs.scores)
+    
+    def obtain_input_scores(
+        self,
+        generated_output,
+        input_ids,
+        attention_mask,
+        tokenizer,
+        output_unnormalized_attentions=True,
+        cuda=True
+    ):  
+        # small helper function to find a function within another function
+        def subfinder(mylist, pattern):
+            matches = []
+            for i in range(len(mylist)):
+                if mylist[i] == pattern[0] and mylist[i:i+len(pattern)] == pattern:
+                    matches.append((i + len(pattern), pattern))
+            return matches  
+        
+        self.eval()
+        with torch.no_grad():
+            model_forward = self.forward(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                decoder_input_ids=generated_output,
+                output_attentions=True,
+                output_unnormalized_attentions=output_unnormalized_attentions
+        )
+
+        cross_attentions = model_forward.cross_attentions
+        stacked_forward_attentions = torch.cat(cross_attentions, dim=0)
+
+        msk = torch.reshape(attention_mask, (1, attention_mask.shape[1]*attention_mask.shape[2]))
+        if cuda:
+            msk = msk.cuda()
+        
+        masked_stacked_forward_attentions = stacked_forward_attentions.masked_fill(msk == False, -10000.0)
+
+        avg_attn_matrix = torch.mean(masked_stacked_forward_attentions, dim=(0, 1)).cpu()
+        input_ids_reshaped = torch.reshape(input_ids, (1, input_ids.shape[1]*input_ids.shape[2]))
+        all_input_tokens = tokenizer.convert_ids_to_tokens(input_ids_reshaped[0])
+
+        start_pattern = ['▁title', ':', '▁context', ':']
+        end_pattern = ['</s>']
+
+        start_index_pattern = subfinder(all_input_tokens, start_pattern)
+        end_index_pattern = subfinder(all_input_tokens, end_pattern)
+
+        start_indices = [el[0] for el in start_index_pattern]
+        end_indices = [el[0] for el in end_index_pattern]
+
+        relevant_ranges = [(start_index, end_index - 1) for start_index, end_index in zip(start_indices, end_indices)]
+        print(relevant_ranges)
+        
+        mean_savgols = []
+        for relevant_range in relevant_ranges:
+            spliced_attn_matrix = avg_attn_matrix[:, relevant_range[0]:relevant_range[1]]
+
+            maxpool = torch.max(spliced_attn_matrix, axis=0).values.cpu().numpy()
+
+            m = maxpool
+            # m = maxpool - minpool
+            try:
+                savgol = scipy.signal.savgol_filter(m, 10, 3)
+
+            except ValueError:
+                try:
+                    savgol = scipy.signal.savgol_filter(m, 5, 3)
+
+                except ValueError:
+                    try:
+                        savgol = scipy.signal.savgol_filter(m, 3, 2)
+
+                    except ValueError:
+                        try:
+                            savgol = scipy.signal.savgol_filter(m, 2, 1)
+
+                        except ValueError:
+                            try:
+                                savgol = scipy.signal.savgol_filter(m, 1, 0)
+
+                            except ValueError:
+                                savgol = [-float('inf')]
+
+            mean_savgol = np.mean(savgol)
+
+            mean_savgols.append(mean_savgol)
+
+        return mean_savgols
 
     def obtain_gqp(
         self,
