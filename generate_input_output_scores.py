@@ -7,7 +7,7 @@ import pickle
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from rouge_score import rouge_scorer
-import scipy
+import scipy.signal
 
 import sys
 sys.path.append("/home/divy/FiD")
@@ -30,7 +30,6 @@ def generate_input_output_scores(model,
                                     dataset, 
                                     tokenizer, 
                                     collator, 
-                                    rouge_threshold=0.7,
                                     topk_passages=5):
     
     # define the scorer
@@ -39,7 +38,6 @@ def generate_input_output_scores(model,
     rouge_similarity_answers = []
     topk_passage_means = []
     topk_passage_stdevs = []
-
 
     sampler = SequentialSampler(dataset)
     dataloader = DataLoader(dataset,
@@ -57,20 +55,20 @@ def generate_input_output_scores(model,
 
         with torch.no_grad():
             
-            generated_output, log_prob = model.generate(
+            generated_output, output_confidence = model.generate(
                 input_ids=context_ids.cuda(),
                 attention_mask=context_mask.cuda(),
-                do_sample=False,
+                do_sample=True,
                 max_length=150,
                 top_p=0.9,
-                temperature=1.0,
+                temperature=0.7,
                 output_confidence=True,
 
             )
 
             model_forward = model.forward(
                 input_ids=context_ids.cuda(),
-        
+                attention_mask=context_mask.cuda(),
                 decoder_input_ids=generated_output.cuda(),
                 output_attentions=True,
                 output_unnormalized_attentions=True,
@@ -84,6 +82,7 @@ def generate_input_output_scores(model,
         rouge_similarity_answers.append((ground_truth_answer,
                                             human_readable_generated_output,
                                             rouge_score,
+                                            output_confidence,
                                             i))
         
         cross_attentions = model_forward.cross_attentions
@@ -139,7 +138,6 @@ def generate_input_output_scores(model,
                                 savgol = [-float('inf')]
 
             mean_savgol = np.mean(savgol)
-
             mean_savgols.append(mean_savgol)
 
         mean_savgols_np = np.array(mean_savgols)
@@ -150,16 +148,56 @@ def generate_input_output_scores(model,
 
         topk_passage_means.append(mean_topk_mean_savgols)
         topk_passage_stdevs.append(stdev_topk_mean_savgols)
-    
-
+ 
     return (
+        rouge_similarity_answers,
+        np.array(topk_passage_means),
+        np.array(topk_passage_stdevs)
+    )
+
+if __name__ == "__main__":
+    
+    # define the load paths
+    nq_path =  "/mnt/disks/external_mounted_disk/datasets/NQ/NQ/test.json"
+    compose_path = "/mnt/disks/external_mounted_disk/datasets/compose_FiD/compose_fid_qa/dev.json"
+
+    # preprocess and collate data
+    eval_examples = load_data(
+                            compose_path,
+                            global_rank=0,
+                            world_size=1,
+                            )
+    
+    n_passages = 25 
+    eval_dataset = src.data.Dataset(eval_examples, n_passages)
+
+    # load the model
+    model_class = src.model.FiDT5
+    model_load_path = "/home/divy/FiD/model_ckpts/test_experiment_large_fid_qa_compose"
+    model = model_class.from_pretrained(model_load_path)
+    model = model.cuda()
+
+    tokenizer = transformers.T5Tokenizer.from_pretrained('t5-base')
+    collator = src.data.Collator(200, tokenizer, answer_maxlength=-1)
+
+    (
         rouge_similarity_answers,
         topk_passage_means,
         topk_passage_stdevs
+    ) = generate_input_output_scores(
+        model,
+        eval_dataset,
+        tokenizer,
+        collator
     )
 
-        
+    print("saving out arrays ...")
 
+    np.save("./numpy_drops/topk_passage_means_p09_t07.npy", topk_passage_means)
+    np.save("./numpy_drops/topk_passage_stdevs_p09_t07.npy", topk_passage_stdevs)
+
+    with open("./numpy_drops/rouge_similarity_answers_dev_v2", "wb") as fp:
+        pickle.dump(rouge_similarity_answers, fp)
 
             
             
