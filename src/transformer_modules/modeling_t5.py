@@ -1635,7 +1635,8 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         attention_mask,
         tokenizer,
         output_unnormalized_attentions=True,
-        cuda=True
+        cuda=True,
+        return_per_token_scores=False
     ):  
         # small helper function to find a function within another function
         def subfinder(mylist, pattern):
@@ -1679,14 +1680,14 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
 
         relevant_ranges = [(start_index, end_index - 1) for start_index, end_index in zip(start_indices, end_indices)]
         
-        mean_savgols = []
+        input_scores = []
         for relevant_range in relevant_ranges:
             spliced_attn_matrix = avg_attn_matrix[:, relevant_range[0]:relevant_range[1]]
 
             maxpool = torch.max(spliced_attn_matrix, axis=0).values.cpu().numpy()
 
             m = maxpool
-            # m = maxpool - minpool
+         
             try:
                 savgol = scipy.signal.savgol_filter(m, 10, 3)
 
@@ -1708,12 +1709,14 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
 
                             except ValueError:
                                 savgol = [-float('inf')]
+            if return_per_token_scores:
+                input_scores.append(savgol)
 
-            mean_savgol = np.mean(savgol)
+            else:
+                mean_savgol = np.mean(savgol)
+                input_scores.append(mean_savgol)
 
-            mean_savgols.append(mean_savgol)
-
-        return mean_savgols
+        return input_scores
 
     def obtain_gqp(
         self,
