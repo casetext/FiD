@@ -14,6 +14,7 @@ from functools import partial
 from multiprocessing import Pool as ProcessPool
 from typing import Tuple, List, Dict
 import numpy as np
+import rouge
 
 """
 Evaluation code from DPR: https://github.com/facebookresearch/DPR
@@ -140,6 +141,11 @@ def exact_match_score(prediction, ground_truth):
 
 def ems(prediction, ground_truths):
     return max([exact_match_score(prediction, gt) for gt in ground_truths])
+
+def rouges(prediction, ground_truths,rouge_score='rouge-l'):
+    rouge = Rouge()
+    scores = [rouge.get_scores(prediction, gt)['rouge_score'] for gt in ground_truths]
+    return np.mean(scores)
 
 ####################################################
 ########        RETRIEVER EVALUATION        ########

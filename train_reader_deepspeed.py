@@ -19,15 +19,19 @@ import src.evaluation
 import src.data
 import src.model
 import deepspeed
-
+import wandb
+from rouge import Rouge
 
 def train(model, optimizer, scheduler, step, train_dataset, eval_dataset, opt, collator, best_dev_em, checkpoint_path):
 
     if opt.is_main:
         try:
-            tb_logger = torch.utils.tensorboard.SummaryWriter(Path(opt.checkpoint_dir)/opt.name)
+            #tb_logger = torch.utils.tensorboard.SummaryWriter(Path(opt.checkpoint_dir)/opt.name)
+            data_logger = 'wandb'
+            wandb.init(config=vars(opt), name=opt.name)
+            wandb.init(sync_tensorboard=True)
         except:
-            tb_logger = None
+            data_logger = None
             logger.warning('Tensorboard is not available.')
 
     torch.manual_seed(opt.global_rank + opt.seed) #different seed for different sampling depending on global_rank
@@ -73,10 +77,8 @@ def train(model, optimizer, scheduler, step, train_dataset, eval_dataset, opt, c
             curr_loss += item_tran_loss
             #logger.info('Step {} train loss {}'.format(step, item_tran_loss))
 
-            
-
             if step % opt.eval_freq == 0:
-                dev_em = evaluate(model, eval_dataset, tokenizer, collator, opt)
+                dev_em, rougel_avg = evaluate(model, eval_dataset, tokenizer, collator, opt)
                 model.train()
                 if opt.is_main:
                     if dev_em > best_dev_em:
@@ -86,11 +88,21 @@ def train(model, optimizer, scheduler, step, train_dataset, eval_dataset, opt, c
                     log = f"{step} / {opt.total_steps} |"
                     log += f"train: {curr_loss/opt.eval_freq:.3f} |"
                     log += f"evaluation: {100*dev_em:.2f}EM |"
+                    log += f"rouge-l: {rougel_avg:.3f} |"                    
                     log += f"lr: {scheduler.get_last_lr()[0]:.5f}"
-                    logger.info(log)    
-                    if tb_logger is not None:
-                        tb_logger.add_scalar("Evaluation", dev_em, step)
-                        tb_logger.add_scalar("Training", curr_loss / (opt.eval_freq), step)
+                    logger.info(log)
+
+
+                    log_dct = {'eval_accuracy':100*dev_em, 
+                               'training_loss':curr_loss / (opt.eval_freq),
+                               'lr': scheduler.get_last_lr(),
+                               'rouge_eval':rougel_avg,
+                               'step':step}
+
+                    if data_logger is not None:
+                        #tb_logger.add_scalar("Evaluation", dev_em, step)
+                        #tb_logger.add_scalar("Training", curr_loss / (opt.eval_freq), step)
+                        wandb.log(log_dct)
                     curr_loss = 0.
 
             if opt.is_main and step % opt.save_freq == 0:
@@ -111,30 +123,31 @@ def evaluate(model, dataset, tokenizer, collator, opt):
     model.eval()
     total = 0
     exactmatch = []
+    rougescores = []
     model = model.module if hasattr(model, "module") else model
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
             (idx, _, _, context_ids, context_mask) = batch
 
-            #import ipdb; ipdb.set_trace()
             outputs = model.generate(
                 input_ids=context_ids.cuda(),
                 attention_mask=context_mask.cuda(),
                 max_length=50
             )
 
-            #import ipdb; ipdb.set_trace()
             for k, o in enumerate(outputs):
                 ans = tokenizer.decode(o, skip_special_tokens=True)
                 gold = dataset.get_example(idx[k])['answers']
                 score = src.evaluation.ems(ans, gold)
+                rouge_score = src.evaluation.rouges(ans, gold)
                 total += 1
                 exactmatch.append(score)
+                rougescores.append(rouge_score)
 
             
 
     exactmatch, total = src.util.weighted_average(np.mean(exactmatch), total, opt)
-    return exactmatch
+    return exactmatch, np.mean(rougescores)
 
 if __name__ == "__main__":
 
@@ -166,7 +179,7 @@ if __name__ == "__main__":
         checkpoint_path / 'run.log'
     )
 
-    model_name = 't5-' + opt.model_size
+    model_name = opt.model_name
     model_class = src.model.FiDT5
 
     #load data
