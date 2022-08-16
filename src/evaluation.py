@@ -14,7 +14,7 @@ from functools import partial
 from multiprocessing import Pool as ProcessPool
 from typing import Tuple, List, Dict
 import numpy as np
-import rouge
+from rouge import Rouge
 
 """
 Evaluation code from DPR: https://github.com/facebookresearch/DPR
@@ -144,8 +144,12 @@ def ems(prediction, ground_truths):
 
 def rouges(prediction, ground_truths,rouge_score='rouge-l'):
     rouge = Rouge()
-    scores = [rouge.get_scores(prediction, gt)['rouge_score'] for gt in ground_truths]
-    return np.mean(scores)
+    try:
+        scores = [rouge.get_scores(prediction, gt)[0]['rouge-l']['f'] for gt in ground_truths]
+        return np.mean(scores)
+    except ValueError:
+        return 0.0
+
 
 ####################################################
 ########        RETRIEVER EVALUATION        ########
