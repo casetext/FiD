@@ -393,6 +393,8 @@ class Retriever(transformers.PreTrainedModel):
         return text_output
 
     def kldivloss(self, score, gold_score):
-        gold_score = torch.softmax(gold_score, dim=-1)
+        # Divy: comment out the extra softmax as I already pre-softmaxed the scores
+        # next time I do this I will uncomment this
+        # gold_score = torch.softmax(gold_score, dim=-1)
         score = torch.nn.functional.log_softmax(score, dim=-1)
         return self.loss_fct(score, gold_score)
