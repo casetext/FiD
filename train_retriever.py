@@ -13,7 +13,7 @@ import numpy as np
 import torch.distributed as dist
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader, RandomSampler, DistributedSampler, SequentialSampler
-
+from tqdm import tqdm
 
 import src.slurm
 import src.util
@@ -49,7 +49,9 @@ def train(model, optimizer, scheduler, global_step,
         if opt.is_distributed > 1:
             train_sampler.set_epoch(epoch)
         epoch += 1
-        for i, batch in enumerate(train_dataloader):
+
+        progress_bar = tqdm(train_dataloader, leave=True, position=0, disable=False)
+        for i, batch in enumerate(progress_bar):
             global_step += 1
             (idx, question_ids, question_mask, passage_ids, passage_mask, gold_score) = batch
             _, _, _, train_loss = model(
@@ -121,7 +123,8 @@ def evaluate(model, dataset, collator, opt):
     idx_topk = {k:[] for k in [1, 2, 5] if k <= opt.n_context}
     inversions = []
     with torch.no_grad():
-        for i, batch in enumerate(dataloader):
+        progress_bar = tqdm(dataloader, leave=True, position=0, disable=False)
+        for i, batch in enumerate(progress_bar):
             (idx, question_ids, question_mask, context_ids, context_mask, gold_score) = batch
 
             _, _, scores, loss = model(
@@ -216,6 +219,18 @@ if __name__ == "__main__":
             output_device=opt.local_rank, 
             find_unused_parameters=True,
         )
+
+    loss, inversions, avg_topk, idx_topk = evaluate(
+        model,
+        eval_dataset,
+        collator_function,
+        opt
+    )
+
+    print(loss)
+    print(inversions)
+    print(avg_topk)
+    print(idx_topk)
     
     train(
         model, 
