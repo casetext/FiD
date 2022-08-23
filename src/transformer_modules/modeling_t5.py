@@ -1638,7 +1638,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         cuda=True,
         return_per_token_scores=False
     ):  
-        # small helper function to find a function within another function
+        # small helper function to find a sequence within another sequence
         def subfinder(mylist, pattern):
             matches = []
             for i in range(len(mylist)):
@@ -1724,7 +1724,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         attention_mask,
         decoder_input_ids,
         output_attentions,
-        output_unnormalized_attentions,
+        output_unnormalized_attentions=True,
         cuda=True
     ):
         # unclear whether I should pass in decoder input ids or labels.
