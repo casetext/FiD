@@ -76,12 +76,18 @@ if __name__ == "__main__":
     if opt.is_distributed:
         torch.distributed.barrier()
 
+    # toggle between evaluating legal bert and bert-base-uncased
+    evaluate_legal_bert = True
+
     #Load data
     # try to load legal bert model
-    load_path = '/home/divy/FiD/prod_ranker_20220409'
-    tokenizer = transformers.BertTokenizerFast.from_pretrained(load_path)
 
-    # tokenizer = transformers.BertTokenizerFast.from_pretrained('bert-base-uncased')
+    if evaluate_legal_bert:
+        load_path = os.path.join(os.getcwd(),'prod_ranker_20220409')
+        tokenizer = transformers.BertTokenizerFast.from_pretrained(load_path)
+    
+    else:
+        tokenizer = transformers.BertTokenizerFast.from_pretrained('bert-base-uncased')
 
     collator_function = src.data.RetrieverCollator(
         tokenizer, 
@@ -100,7 +106,12 @@ if __name__ == "__main__":
     best_eval_loss = np.inf
     
     # edit the model path here, accordingly
-    model_path = os.path.join(os.getcwd(), "checkpoint_lawbert/experiment_name/checkpoint/step-600")
+
+    if evaluate_legal_bert:
+        model_path = os.path.join(os.getcwd(), "checkpoint_lawbert/experiment_name/checkpoint/step-600")
+    
+    else:
+        model_path = os.path.join(os.getcwd(), "checkpoint_bert_base/experiment_name/checkpoint/step-700")
 
     # load model checkpoint
     model_class = src.model.Retriever
@@ -116,7 +127,7 @@ if __name__ == "__main__":
         opt
     )
 
-    print(f"loss: {loss}")
+    print(f"eval loss: {loss}")
     print(f"inversions: {inversions}")
     print(f"avg_topk: {avg_topk}")
     print(f"idx_topk: {idx_topk}")
