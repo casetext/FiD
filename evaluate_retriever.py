@@ -72,18 +72,16 @@ if __name__ == "__main__":
     src.slurm.init_distributed_mode(opt)
     src.slurm.init_signal_handler()
 
-    # dir_path = Path(opt.checkpoint_dir)/opt.name
-    # directory_exists = dir_path.exists()
+
     if opt.is_distributed:
         torch.distributed.barrier()
-    # dir_path.mkdir(parents=True, exist_ok=True)
-    # if not directory_exists and opt.is_main:
-    #     options.print_options(opt)
 
     #Load data
     # try to load legal bert model
-    # load_path = '/home/divy/FiD/prod_ranker_20220409'
-    tokenizer = transformers.BertTokenizerFast.from_pretrained('bert-base-uncased')
+    load_path = '/home/divy/FiD/prod_ranker_20220409'
+    tokenizer = transformers.BertTokenizerFast.from_pretrained(load_path)
+
+    # tokenizer = transformers.BertTokenizerFast.from_pretrained('bert-base-uncased')
 
     collator_function = src.data.RetrieverCollator(
         tokenizer, 
@@ -101,7 +99,10 @@ if __name__ == "__main__":
     global_step = 0
     best_eval_loss = np.inf
     
-    model_path = "/home/divy/FiD/checkpoint/experiment_name/checkpoint/step-700"
+    # edit the model path here, accordingly
+    model_path = os.path.join(os.getcwd(), "checkpoint_lawbert/experiment_name/checkpoint/step-600")
+
+    # load model checkpoint
     model_class = src.model.Retriever
 
     model = model_class.from_pretrained(model_path)
@@ -115,10 +116,9 @@ if __name__ == "__main__":
         opt
     )
 
-
-    print(loss)
-    print(inversions)
-    print(avg_topk)
-    print(idx_topk)
+    print(f"loss: {loss}")
+    print(f"inversions: {inversions}")
+    print(f"avg_topk: {avg_topk}")
+    print(f"idx_topk: {idx_topk}")
 
    
