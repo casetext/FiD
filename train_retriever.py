@@ -14,6 +14,7 @@ import torch.distributed as dist
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader, RandomSampler, DistributedSampler, SequentialSampler
 from tqdm import tqdm
+import ipdb
 
 import src.slurm
 import src.util
@@ -74,7 +75,11 @@ def train(model, optimizer, scheduler, global_step,
             curr_loss += train_loss.item()
 
             if global_step % opt.eval_freq == 0:
+                
                 eval_loss, inversions, avg_topk, idx_topk = evaluate(model, dev_dataset, collator, opt)
+                print(inversions)
+                print(avg_topk)
+                print(idx_topk)
                 if eval_loss < best_eval_loss:
                     best_eval_loss = eval_loss
                     if opt.is_main:
@@ -98,6 +103,7 @@ def train(model, optimizer, scheduler, global_step,
                     curr_loss = 0
 
             if opt.is_main and global_step % opt.save_freq == 0:
+                
                 src.util.save(model, optimizer, scheduler, global_step, best_eval_loss, opt, dir_path, f"step-{global_step}")
             if global_step > opt.total_steps:
                 break
@@ -166,6 +172,10 @@ if __name__ == "__main__":
     opt.train_batch_size = opt.per_gpu_batch_size * max(1, opt.world_size)
 
     #Load data
+    # try to load legal bert model
+    load_path = '/home/divy/FiD/prod_ranker_20220409'
+    # tokenizer = transformers.BertTokenizerFast.from_pretrained(load_path)
+
     tokenizer = transformers.BertTokenizerFast.from_pretrained('bert-base-uncased')
     collator_function = src.data.RetrieverCollator(
         tokenizer, 
@@ -190,6 +200,7 @@ if __name__ == "__main__":
         extract_cls=opt.extract_cls,
         projection=not opt.no_projection,
     )
+    
     model_class = src.model.Retriever
     if not directory_exists and opt.model_path == "none":
         model = model_class(config, initialize_wBERT=True)
