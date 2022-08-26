@@ -324,8 +324,9 @@ class Retriever(transformers.PreTrainedModel):
             'If no projection then indexing dimension must be equal to 768'
         self.config = config
         if initialize_wBERT:
-            # self.model = transformers.BertModel.from_pretrained('/home/divy/FiD/prod_ranker_20220409')
-            self.model = transformers.BertModel.from_pretrained('bert-base-uncased')
+            # DRM: hackily added here, if this is useful down the line, I'll add this to the Options()
+            self.model = transformers.BertModel.from_pretrained('/home/divy/FiD/prod_ranker_20220409')
+            # self.model = transformers.BertModel.from_pretrained('bert-base-uncased')
         else:
             self.model = transformers.BertModel(config)
         if self.config.projection:
@@ -394,7 +395,7 @@ class Retriever(transformers.PreTrainedModel):
         return text_output
 
     def kldivloss(self, score, gold_score):
-        # Divy: comment out the extra softmax as I already pre-softmaxed the scores
+        # DRM: comment out the extra softmax as I already pre-softmaxed the scores
         # next time I do this I will uncomment this
         # gold_score = torch.softmax(gold_score, dim=-1)
         score = torch.nn.functional.log_softmax(score, dim=-1)
