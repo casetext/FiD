@@ -1,5 +1,5 @@
 import time
-import sys
+import os, sys
 import torch
 import transformers
 from pathlib import Path
@@ -8,6 +8,7 @@ import torch.distributed as dist
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader, RandomSampler, DistributedSampler, SequentialSampler
 from tqdm import tqdm
+import json
 
 import src.slurm
 import src.util
@@ -15,6 +16,9 @@ import src.evaluation
 import src.data
 import src.model
 from src.options import Options
+import ipdb
+
+# DRM: THIS SCRIPT HAS NOT BEEN TESTED ON MULTIPLE GPUS, PROCEED WITH CAUTION IF YOU TAKE THAT ROUTE.
 
 def evaluate(model, dataset, collator, opt):
     sampler = SequentialSampler(dataset)
@@ -78,10 +82,9 @@ if __name__ == "__main__":
 
     #Load data
     # try to load legal bert model
-    load_path = '/home/divy/FiD/prod_ranker_20220409'
-    tokenizer = transformers.BertTokenizerFast.from_pretrained('bert-base-cased')
+    # load_path = '/home/divy/FiD/prod_ranker_20220409'
+    tokenizer = transformers.BertTokenizerFast.from_pretrained('bert-base-uncased')
 
-    # tokenizer = transformers.BertTokenizerFast.from_pretrained('bert-base-uncased')
     collator_function = src.data.RetrieverCollator(
         tokenizer, 
         passage_maxlength=opt.passage_maxlength, 
@@ -97,21 +100,12 @@ if __name__ == "__main__":
 
     global_step = 0
     best_eval_loss = np.inf
-    config = src.model.RetrieverConfig(
-        indexing_dimension=opt.indexing_dimension,
-        apply_question_mask=not opt.no_question_mask,
-        apply_passage_mask=not opt.no_passage_mask,
-        extract_cls=opt.extract_cls,
-        projection=not opt.no_projection,
-    )
+    
+    model_path = "/home/divy/FiD/checkpoint/experiment_name/checkpoint/step-700"
     model_class = src.model.Retriever
-    model = model_class.from_pretrained("/home/divy/FiD/checkpoint_fid_bertbase/experiment_name/checkpoint/best_dev")
 
-    # model = model_class(config, initialize_wBERT=True)
+    model = model_class.from_pretrained(model_path)
 
-    model.proj = torch.nn.Linear(768, 256)
-    model.norm = torch.nn.LayerNorm(256)
-    model.config.indexing_dimension = 256
     model = model.to(opt.device)
 
     loss, inversions, avg_topk, idx_topk = evaluate(
@@ -121,7 +115,10 @@ if __name__ == "__main__":
         opt
     )
 
+
     print(loss)
     print(inversions)
     print(avg_topk)
     print(idx_topk)
+
+   
