@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import time
-import sys
+import os, sys
 import torch
 import transformers
 from pathlib import Path
@@ -22,7 +22,6 @@ import src.evaluation
 import src.data
 import src.model
 from src.options import Options
-
 
 def train(model, optimizer, scheduler, global_step,
                     train_dataset, dev_dataset, opt, collator, best_eval_loss):
@@ -77,9 +76,7 @@ def train(model, optimizer, scheduler, global_step,
             if global_step % opt.eval_freq == 0:
                 
                 eval_loss, inversions, avg_topk, idx_topk = evaluate(model, dev_dataset, collator, opt)
-                print(inversions)
-                print(avg_topk)
-                print(idx_topk)
+
                 if eval_loss < best_eval_loss:
                     best_eval_loss = eval_loss
                     if opt.is_main:
@@ -107,7 +104,6 @@ def train(model, optimizer, scheduler, global_step,
                 src.util.save(model, optimizer, scheduler, global_step, best_eval_loss, opt, dir_path, f"step-{global_step}")
             if global_step > opt.total_steps:
                 break
-
 
 def evaluate(model, dataset, collator, opt):
     sampler = SequentialSampler(dataset)
@@ -171,12 +167,20 @@ if __name__ == "__main__":
     logger = src.util.init_logger(opt.is_main, opt.is_distributed, Path(opt.checkpoint_dir) / opt.name / 'run.log')
     opt.train_batch_size = opt.per_gpu_batch_size * max(1, opt.world_size)
 
+    # DRM: Just adding this flag here, if this code is useful down the line I will clean it up and put it in the Options()
+
+    train_legal_bert = True
+
     #Load data
     # try to load legal bert model
-    load_path = '/home/divy/FiD/prod_ranker_20220409'
-    # tokenizer = transformers.BertTokenizerFast.from_pretrained(load_path)
-
-    tokenizer = transformers.BertTokenizerFast.from_pretrained('bert-base-uncased')
+    if train_legal_bert:
+        load_path = os.path.join(os.getcwd(),'prod_ranker_20220409')
+        tokenizer = transformers.BertTokenizerFast.from_pretrained(load_path)
+    
+    # just load a regular bert-based-uncased tokenizer
+    else:
+        tokenizer = transformers.BertTokenizerFast.from_pretrained('bert-base-uncased')
+    
     collator_function = src.data.RetrieverCollator(
         tokenizer, 
         passage_maxlength=opt.passage_maxlength, 
@@ -201,6 +205,11 @@ if __name__ == "__main__":
         projection=not opt.no_projection,
     )
     
+    # manually overwrite the vocab dimension for legalbert model
+    # if this is useful down the line, I'll clean this up to be more general rather than be hardcoded.
+    if train_legal_bert:
+        config.vocab_size = 32024
+
     model_class = src.model.Retriever
     if not directory_exists and opt.model_path == "none":
         model = model_class(config, initialize_wBERT=True)
@@ -238,10 +247,12 @@ if __name__ == "__main__":
         opt
     )
 
-    print(loss)
-    print(inversions)
-    print(avg_topk)
-    print(idx_topk)
+    print("=== BEFORE TRAINING ===")
+    print("")
+    print(f"eval loss: {loss}")
+    print(f"inversions: {inversions}")
+    print(f"avg_topk: {avg_topk}")
+    print(f"idx_topk: {idx_topk}")
     
     train(
         model, 
