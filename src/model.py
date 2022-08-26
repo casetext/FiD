@@ -324,6 +324,7 @@ class Retriever(transformers.PreTrainedModel):
             'If no projection then indexing dimension must be equal to 768'
         self.config = config
         if initialize_wBERT:
+            # self.model = transformers.BertModel.from_pretrained('/home/divy/FiD/prod_ranker_20220409')
             self.model = transformers.BertModel.from_pretrained('bert-base-uncased')
         else:
             self.model = transformers.BertModel(config)
