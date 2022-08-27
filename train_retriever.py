@@ -98,7 +98,7 @@ def train(model, optimizer, scheduler, global_step,
                         tb_logger.add_scalar("Evaluation", eval_loss, global_step)
                         tb_logger.add_scalar("Training", curr_loss / (opt.eval_freq), global_step)
                     curr_loss = 0
-
+            
             if opt.is_main and global_step % opt.save_freq == 0:
                 
                 src.util.save(model, optimizer, scheduler, global_step, best_eval_loss, opt, dir_path, f"step-{global_step}")
@@ -253,6 +253,9 @@ if __name__ == "__main__":
     print(f"inversions: {inversions}")
     print(f"avg_topk: {avg_topk}")
     print(f"idx_topk: {idx_topk}")
+
+    # save a checkpoint before doing any training, to have a baseline to compare to
+    src.util.save(model, optimizer, scheduler, global_step, best_eval_loss, opt, dir_path, f"step-{global_step}")
     
     train(
         model, 
