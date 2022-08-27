@@ -108,7 +108,7 @@ if __name__ == "__main__":
     # edit the model path here, accordingly
 
     if evaluate_legal_bert:
-        model_path = os.path.join(os.getcwd(), "checkpoint_lawbert/experiment_name/checkpoint/step-600")
+        model_path = os.path.join(os.getcwd(), "/home/divy/FiD/checkpoint_lawbert/experiment_name/checkpoint/step-600")
     
     else:
         model_path = os.path.join(os.getcwd(), "checkpoint_bert_base/experiment_name/checkpoint/step-700")
