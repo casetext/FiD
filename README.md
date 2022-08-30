@@ -2,6 +2,55 @@ This repository contains code for:
 - Fusion-in-Decoder models
 - Distilling Knowledge from Reader to Retriever
 
+## Additional work, with legal data
+
+***Note: we did not test the below code in a multi-gpu setting, proceed with caution if you wish to go that route.***
+
+We report results of the performance of the retriever using the paper's metrics (number of `inversions`, `avg_topk` and `idx_topk`). 
+
+To run the code, the following steps must be performed to prep it:
+
+- obtain the production ranker from `gs://siamese-models/prod_ranker_20220409`.
+- in `src/model.py`, modify the `Retriever` class to load the default model (under `if initialize_wBERT`) from (replacing `/path/to` with your path)
+```
+self.model = transformers.BertModel.from_pretrained('/path/to/prod_ranker_20220409')
+```
+- obtain the train/test data from [here](https://github.com/casetext/casetext-ml-datasets/tree/main/fid_reader_distill_question_data/notebooks)
+
+- Train a retriever model via (replacing `/path/to` with your path)
+```
+python train_retriever.py --lr 1e-4 --optim adamw --scheduler linear --train_data /path/to/compose_fid_train_scored.json --eval_data /path/to/compose_fid_dev_scored.json --n_context 25 --total_steps 20000 --scheduler_steps 3000 --checkpoint_dir './checkpoint_lawbert' --eval_freq 100 --save_freq 100
+```
+- Finally, to evaluate, run 
+```
+python evaluate_retriever.py --eval_data /home/divy/casetext-ml-datasets/fid_reader_distill_question_data/notebooks/compose_fid_dev_scored.json --n_context 25
+```
+after modifying line 111 of `evaluate_retriever.py` with the model checkpoint you wish to evaluate.
+
+**Results**
+
+On this data, we found that evaluation performance began to degrade after about 600 steps (equivalent to 700 examples, since `batch_size = 1` by default). Here are the results:
+
+Retriever at zero steps:
+```
+eval loss: 0.05155069753527641
+inversions: 62.80829015544042
+avg_topk: {1: 0.031088082901554404, 2: 0.06476683937823834, 5: 0.25129533678756477}
+idx_topk: {1: 10.922279792746114, 2: 12.10880829015544, 5: 13.318652849740932}
+```
+
+retriever at 600 steps:
+```
+eval loss: 0.006813043262809515
+inversions: 23.564766839378237
+avg_topk: {1: 0.5595854922279793, 2: 0.5919689119170984, 5: 0.6580310880829016}
+idx_topk: {1: 2.6088082901554404, 2: 4.536269430051814, 5: 8.704663212435234}
+```
+
+While this knowledge distillation methodology is internally consistent and improves according to the paper's evaluation metrics, we found that (a) this method does not generalise well to other datasets (such as `cognia`, or even the non-QA `compose`), and in fact performance worsens based on metrics such as MRR/NDCG.
+
+Fundamentally, this training method uses FiD's input scores as ground truths of what relevant vs irrelevant passages are -- via what FiD pays most attention to. And the paper's evaluation metrics measure just that. However, what FiD pays most attention to might not necessarily to what's ***actually*** most relevant, which is why we suspect that this method does not generalise.
+
 ## Dependencies
 
 - Python 3
